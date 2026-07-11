@@ -22,8 +22,33 @@ let cache = {
 const cacheVigente = () => cache.quote !== null && Date.now() - cache.cachedAt < QUOTE_CACHE_TTL_MS
 
 /**
- * Devuelve una frase motivacional, usando el caché si todavía es válido
- * o consultando ZenQuotes si expiró (o si nunca se consultó).
+ * Traduce un texto de inglés a español usando MyMemory (API gratuita,
+ * no requiere API key). Si la traducción falla por cualquier motivo,
+ * se devuelve el texto original en inglés (fallback silencioso) para
+ * que el endpoint nunca se caiga por un problema del traductor.
+ */
+const traducirAlEspanol = async (texto) => {
+    try {
+        const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(texto)}&langpair=en|es`
+        const response = await fetchConTimeout(url, {}, 5000)
+
+        if (!response.ok) {
+            return texto
+        }
+
+        const data = await response.json()
+        const traducido = data?.responseData?.translatedText
+
+        return traducido && traducido.trim() ? traducido : texto
+    } catch (error) {
+        return texto
+    }
+}
+
+/**
+ * Devuelve una frase motivacional traducida al español, usando el caché
+ * si todavía es válido o consultando ZenQuotes + traductor si expiró
+ * (o si nunca se consultó).
  *
  * @returns {Promise<{ quote: string, author: string, cached: boolean }>}
  */
@@ -46,7 +71,7 @@ export const getRandomQuoteCached = async () => {
     }
 
     const quote = {
-        quote: primera.q,
+        quote: await traducirAlEspanol(primera.q),
         author: primera.a,
     }
 
