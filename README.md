@@ -1,13 +1,13 @@
 # Guía de Endpoints — API FitTrack Pro (para probar en Postman)
 
-**URL base del backend (producción, Render):**
+**URL base del backend (producción, Vercel):**
 ```
-https://fittraack-movil-gr4-v2-xpress.onrender.com
+https://fit-traack-movil-gr4-vercel-xpress-pi.vercel.app
 ```
 
 Todas las URLs de esta guía ya están escritas completas con esta base, listas para pegar en Postman.
 
-> ⚠️ Nota: Render pone a "dormir" el servicio gratis si nadie lo usa. La primera petición después de un tiempo de inactividad puede tardar 20-30 segundos en responder (se está "despertando"). Es normal, no es un error.
+> ✅ Nota: a diferencia de Render, Vercel **no duerme** el servicio por inactividad — la primera petición responde igual de rápido que las siguientes.
 
 ---
 
@@ -57,7 +57,7 @@ Rutas base: `/api/auth`. Sirven para crear cuentas, iniciar sesión y recuperar 
 Crea una cuenta nueva. Es el primer paso para poder usar la app: guarda el email, la contraseña (encriptada) y el nombre, y de una vez devuelve el token para que el usuario quede logueado automáticamente tras registrarse.
 
 - **Método:** `POST`
-- **URL:** `https://fittraack-movil-gr4-v2-xpress.onrender.com/api/auth/register`
+- **URL:** `https://fit-traack-movil-gr4-vercel-xpress-pi.vercel.app/api/auth/register`
 - **Autenticación:** 🔓 Pública
 - **Body (JSON):**
 ```json
@@ -94,7 +94,7 @@ Crea una cuenta nueva. Es el primer paso para poder usar la app: guarda el email
 Valida email + contraseña y devuelve el token para usar en el resto de endpoints privados.
 
 - **Método:** `POST`
-- **URL:** `https://fittraack-movil-gr4-v2-xpress.onrender.com/api/auth/login`
+- **URL:** `https://fit-traack-movil-gr4-vercel-xpress-pi.vercel.app/api/auth/login`
 - **Autenticación:** 🔓 Pública
 - **Body (JSON):**
 ```json
@@ -108,53 +108,152 @@ Valida email + contraseña y devuelve el token para usar en el resto de endpoint
 
 ---
 
-### 1.3 Olvidé mi contraseña
-Inicia el flujo de recuperación: si el email existe, genera un token temporal (válido 60 minutos) y le envía un correo con el link para restablecer la contraseña.
+### 1.3 Fase 1 — Solicitar recuperación de contraseña
+El usuario está en la pantalla "¿Olvidaste tu contraseña?" e ingresa su correo. Si el correo existe en la base de datos, el backend genera un token temporal, lo asocia al usuario y envía un correo (vía Nodemailer) con el enlace de recuperación. **En esta fase todavía no se cambia la contraseña**, solo se confirma que el correo fue enviado.
 
 - **Método:** `POST`
-- **URL:** `https://fittraack-movil-gr4-v2-xpress.onrender.com/api/auth/forgot-password`
+- **URL:** `https://fit-traack-movil-gr4-vercel-xpress-pi.vercel.app/api/auth/recuperarpassword`
 - **Autenticación:** 🔓 Pública
 - **Body (JSON):**
 ```json
 {
-  "email": "juan@example.com"
-}
-```
-- **Respuesta (200 OK):** siempre el mismo mensaje, exista o no el email (para no revelar qué correos están registrados):
-```json
-{
-  "msg": "Si el email está registrado, recibirás un enlace para restablecer tu contraseña."
-}
-```
-
----
-
-### 1.4 Restablecer contraseña
-Segundo paso del flujo anterior: con el token que llegó por correo, define una contraseña nueva.
-
-- **Método:** `POST`
-- **URL:** `https://fittraack-movil-gr4-v2-xpress.onrender.com/api/auth/reset-password`
-- **Autenticación:** 🔓 Pública
-- **Body (JSON):**
-```json
-{
-  "token": "el_token_que_llegó_por_correo",
-  "newPassword": "nuevaClave123"
+  "email": "correo@epn.edu.ec"
 }
 ```
 - **Respuesta (200 OK):**
 ```json
-{ "msg": "Contraseña actualizada correctamente. Ya puedes iniciar sesión." }
+{ "msg": "Revisa tu correo institucional para restablecer tu contraseña" }
 ```
-- **Errores comunes:** `400` si el token es inválido o ya expiró, o si `newPassword` tiene menos de 6 caracteres.
+- **Errores comunes:** `400` si falta `email`. `404` si ese correo no está registrado.
+
+> 🧪 **Tip para pruebas en Postman:** mientras el frontend no esté conectado con un link real, puedes obtener el token sin revisar el correo: ve a **Vercel → tu proyecto → pestaña Logs** justo después de llamar a este endpoint, y busca la línea `🔑 [DEV] Reset token para ...`. Copia ese token y úsalo directo en las Fases 2 y 3 de abajo. (Este log solo aparece si la variable de entorno `NODE_ENV` **no** está en `production`).
 
 ---
 
-### 1.5 Ver mi usuario (ruta de prueba de login)
+### 1.4 Fase 2 — Validar token de recuperación
+El usuario abre el enlace que le llegó al correo (contiene el token). El frontend valida ese token **antes** de mostrar el formulario de nueva contraseña. Si el token no existe, no pertenece a ningún usuario o ya expiró, el formulario de nueva contraseña **nunca debe mostrarse**.
+
+- **Método:** `GET`
+- **URL:** `https://fit-traack-movil-gr4-vercel-xpress-pi.vercel.app/api/auth/recuperarpassword/{token}`
+  - Reemplaza `{token}` por el token recibido en el correo. Ejemplo: `.../api/auth/recuperarpassword/9f2a1b3c...`
+- **Autenticación:** 🔓 Pública
+- **Body:** no necesita
+- **Respuesta (200 OK):**
+```json
+{ "msg": "Token confirmado. Ya puedes crear tu nueva contraseña." }
+```
+- **Errores comunes:** `400` si el token es inválido o ya expiró (el enlace de recuperación dura 60 minutos).
+
+---
+
+### 1.5 Fase 3 — Establecer nueva contraseña
+Con el token ya validado (Fase 2), el usuario llena el formulario con la nueva contraseña y su confirmación. El backend vuelve a revisar que el token siga siendo válido (pudo expirar mientras el usuario escribía), valida que ambas contraseñas coincidan y que cumplan las reglas de seguridad, encripta la contraseña, la guarda, y **invalida el token** para que no pueda reutilizarse.
+
+- **Método:** `POST`
+- **URL:** `https://fit-traack-movil-gr4-vercel-xpress-pi.vercel.app/api/auth/nuevopassword/{token}`
+  - Reemplaza `{token}` por el mismo token de la Fase 2.
+- **Autenticación:** 🔓 Pública
+- **Body (JSON):**
+```json
+{
+  "password": "Ejemplo1@",
+  "confirmpassword": "Ejemplo1@"
+}
+```
+- **Reglas de la contraseña:** mínimo 8 caracteres, con al menos 1 mayúscula, 1 minúscula, 1 número y 1 carácter especial (ej. `Ejemplo1@`).
+- **Respuesta (200 OK):**
+```json
+{ "msg": "¡Contraseña actualizada! Ya puedes iniciar sesión." }
+```
+- **Errores comunes:**
+  - `400` si falta `password` o `confirmpassword`
+  - `400` si las contraseñas no coinciden
+  - `400` si la contraseña no cumple las reglas de seguridad
+  - `400` si el token es inválido o ya expiró
+
+Después de este paso, el usuario ya puede iniciar sesión con la nueva contraseña usando `POST /api/auth/login` (endpoint 1.2).
+
+---
+
+### 1.6 Diagrama de flujo — Recuperación de contraseña
+
+```
+ USUARIO                FRONTEND                    BACKEND                  CORREO
+    |                       |                           |                        |
+    |  Ingresa email        |                           |                        |
+    |----------------------->                           |                        |
+    |                       |  POST /api/auth/           |                        |
+    |                       |  recuperarpassword         |                        |
+    |                       |  { email }                 |                        |
+    |                       |--------------------------->|                        |
+    |                       |                           | Valida que el email    |
+    |                       |                           | exista en la BD        |
+    |                       |                           | Genera token temporal  |
+    |                       |                           | Guarda hash del token  |
+    |                       |                           | asociado al usuario    |
+    |                       |                           |----------------------->|
+    |                       |                           |  Envía correo con      |
+    |                       |                           |  enlace + token        |
+    |                       |                           |                        |
+    |                       |  200 { msg: "Revisa tu    |                        |
+    |                       |  correo institucional..." }|                        |
+    |                       |<---------------------------|                        |
+    |  Ve confirmación      |                           |                        |
+    |<-----------------------|                           |                        |
+    |                       |                           |                        |
+    |  Abre el correo       |                           |                        |
+    |<--------------------------------------------------------------------------|
+    |  Da clic en el enlace |                           |                        |
+    |----------------------->                           |                        |
+    |                       |  GET /api/auth/            |                        |
+    |                       |  recuperarpassword/{token} |                        |
+    |                       |--------------------------->|                        |
+    |                       |                           | Verifica que el token  |
+    |                       |                           | exista, sea de un      |
+    |                       |                           | usuario y no expiró    |
+    |                       |  200 { msg: "Token         |                        |
+    |                       |  confirmado..." }          |                        |
+    |                       |<---------------------------|                        |
+    |  Ve formulario de     |                           |                        |
+    |  nueva contraseña     |                           |                        |
+    |<-----------------------|                           |                        |
+    |                       |                           |                        |
+    |  Escribe nueva         |                           |                        |
+    |  contraseña + confirma |                           |                        |
+    |----------------------->                           |                        |
+    |                       |  POST /api/auth/           |                        |
+    |                       |  nuevopassword/{token}     |                        |
+    |                       |  { password,               |                        |
+    |                       |    confirmpassword }       |                        |
+    |                       |--------------------------->|                        |
+    |                       |                           | Revalida el token      |
+    |                       |                           | Valida coincidencia    |
+    |                       |                           | Valida reglas de       |
+    |                       |                           | seguridad              |
+    |                       |                           | Encripta contraseña    |
+    |                       |                           | Actualiza usuario      |
+    |                       |                           | Invalida el token      |
+    |                       |                           |----------------------->|
+    |                       |                           |  (opcional) Notifica   |
+    |                       |                           |  cambio de contraseña  |
+    |                       |  200 { msg: "¡Contraseña   |                        |
+    |                       |  actualizada!..." }        |                        |
+    |                       |<---------------------------|                        |
+    |  Ve mensaje de éxito  |                           |                        |
+    |<-----------------------|                           |                        |
+    |                       |                           |                        |
+    |  Inicia sesión con    |                           |                        |
+    |  la nueva contraseña  |                           |                        |
+    |----------------------->  POST /api/auth/login ---->|                        |
+```
+
+---
+
+### 1.7 Ver mi usuario (ruta de prueba de login)
 Endpoint simple para comprobar que el token funciona: devuelve los datos del usuario dueño del token. (Es prácticamente igual a `GET /api/users/me`, se usa para validar rápido la autenticación).
 
 - **Método:** `GET`
-- **URL:** `https://fittraack-movil-gr4-v2-xpress.onrender.com/api/auth/me`
+- **URL:** `https://fit-traack-movil-gr4-vercel-xpress-pi.vercel.app/api/auth/me`
 - **Autenticación:** 🔒 Privado (header `Authorization: Bearer {token}`)
 - **Body:** no necesita
 - **Respuesta (200 OK):**
@@ -171,7 +270,7 @@ Rutas base: `/api/users`. Ver y editar el perfil del usuario logueado (datos per
 Devuelve todos los datos del usuario autenticado.
 
 - **Método:** `GET`
-- **URL:** `https://fittraack-movil-gr4-v2-xpress.onrender.com/api/users/me`
+- **URL:** `https://fit-traack-movil-gr4-vercel-xpress-pi.vercel.app/api/users/me`
 - **Autenticación:** 🔒 Privado
 - **Body:** no necesita
 - **Respuesta (200 OK):**
@@ -198,7 +297,7 @@ Devuelve todos los datos del usuario autenticado.
 Edita datos del perfil. Solo se actualizan los campos que envíes (actualización parcial); no hace falta mandarlos todos. **No sirve para cambiar email ni contraseña** (eso va por otros endpoints).
 
 - **Método:** `PATCH`
-- **URL:** `https://fittraack-movil-gr4-v2-xpress.onrender.com/api/users/me`
+- **URL:** `https://fit-traack-movil-gr4-vercel-xpress-pi.vercel.app/api/users/me`
 - **Autenticación:** 🔒 Privado
 - **Body (JSON) — todos los campos son opcionales, envía solo los que quieras cambiar:**
 ```json
@@ -224,7 +323,7 @@ Edita datos del perfil. Solo se actualizan los campos que envíes (actualizació
 Sube una imagen (se guarda en Cloudinary) y la asigna como foto de perfil del usuario. Si ya tenía una foto, la reemplaza.
 
 - **Método:** `POST`
-- **URL:** `https://fittraack-movil-gr4-v2-xpress.onrender.com/api/users/me/photo`
+- **URL:** `https://fit-traack-movil-gr4-vercel-xpress-pi.vercel.app/api/users/me/photo`
 - **Autenticación:** 🔒 Privado
 - **Body:** en Postman, pestaña **Body → form-data** (NO raw/JSON):
 
@@ -250,7 +349,7 @@ Rutas base: `/api/activities`. Registro de sesiones de ejercicio (correr o camin
 Guarda una actividad terminada (con su ruta GPS opcional). El backend calcula automáticamente duración, ritmo promedio, velocidad promedio y calorías quemadas; además intenta enriquecerla con clima, nombre del lugar y desnivel.
 
 - **Método:** `POST`
-- **URL:** `https://fittraack-movil-gr4-v2-xpress.onrender.com/api/activities`
+- **URL:** `https://fit-traack-movil-gr4-vercel-xpress-pi.vercel.app/api/activities`
 - **Autenticación:** 🔒 Privado
 - **Body (JSON):**
 ```json
@@ -293,7 +392,7 @@ Guarda una actividad terminada (con su ruta GPS opcional). El backend calcula au
 Devuelve todas las actividades del usuario autenticado, resumidas (sin los puntos GPS), ordenadas de la más reciente a la más antigua.
 
 - **Método:** `GET`
-- **URL:** `https://fittraack-movil-gr4-v2-xpress.onrender.com/api/activities`
+- **URL:** `https://fit-traack-movil-gr4-vercel-xpress-pi.vercel.app/api/activities`
 - **Autenticación:** 🔒 Privado
 - **Body:** no necesita
 - **Respuesta (200 OK):**
@@ -307,7 +406,7 @@ Devuelve todas las actividades del usuario autenticado, resumidas (sin los punto
 Devuelve una actividad específica con toda su información: la ruta GPS completa punto por punto y las estadísticas calculadas (desnivel, velocidad máxima, etc.).
 
 - **Método:** `GET`
-- **URL:** `https://fittraack-movil-gr4-v2-xpress.onrender.com/api/activities/{id}`
+- **URL:** `https://fit-traack-movil-gr4-vercel-xpress-pi.vercel.app/api/activities/{id}`
   - Reemplaza `{id}` por el `_id` de la actividad (lo obtienes de 3.1 o 3.2). Ejemplo: `.../api/activities/665f1a2b3c4d5e6f7g8h9i0j`
 - **Autenticación:** 🔒 Privado (solo puedes ver tus propias actividades)
 - **Body:** no necesita
@@ -327,7 +426,7 @@ Devuelve una actividad específica con toda su información: la ruta GPS complet
 Borra la actividad y, en cascada, sus puntos GPS y sus estadísticas asociadas.
 
 - **Método:** `DELETE`
-- **URL:** `https://fittraack-movil-gr4-v2-xpress.onrender.com/api/activities/{id}`
+- **URL:** `https://fit-traack-movil-gr4-vercel-xpress-pi.vercel.app/api/activities/{id}`
 - **Autenticación:** 🔒 Privado (solo puedes borrar tus propias actividades)
 - **Body:** no necesita
 - **Respuesta (200 OK):**
@@ -344,7 +443,7 @@ Borra la actividad y, en cascada, sus puntos GPS y sus estadísticas asociadas.
 Devuelve el clima actual para unas coordenadas (útil para mostrarlo antes de iniciar una actividad, o para guardarlo como snapshot al crearla). El backend actúa como intermediario con OpenWeatherMap, así la app nunca necesita la API key.
 
 - **Método:** `GET`
-- **URL:** `https://fittraack-movil-gr4-v2-xpress.onrender.com/api/weather?lat=-0.0378&lng=-78.1417`
+- **URL:** `https://fit-traack-movil-gr4-vercel-xpress-pi.vercel.app/api/weather?lat=-0.0378&lng=-78.1417`
 - **Autenticación:** 🔒 Privado
 - **Query params:**
   - `lat`: latitud (número)
@@ -374,7 +473,7 @@ Devuelve el clima actual para unas coordenadas (útil para mostrarlo antes de in
 Devuelve un resumen completo del progreso del usuario: distancia y actividades totales, mejor ritmo histórico, comparación de minutos de actividad de la última semana contra la recomendación de la OMS (150 min/semana), balance calórico del día (calorías quemadas vs consumidas) e IMC calculado con el peso/altura del perfil.
 
 - **Método:** `GET`
-- **URL:** `https://fittraack-movil-gr4-v2-xpress.onrender.com/api/stats/me`
+- **URL:** `https://fit-traack-movil-gr4-vercel-xpress-pi.vercel.app/api/stats/me`
 - **Autenticación:** 🔒 Privado
 - **Body:** no necesita
 - **Respuesta (200 OK):**
@@ -409,7 +508,7 @@ Devuelve un resumen completo del progreso del usuario: distancia y actividades t
 Devuelve una frase motivacional (autor incluido) para mostrar en la app, por ejemplo en la pantalla de inicio. Internamente el backend usa un caché de 30 minutos, así que varias llamadas seguidas pueden devolver la misma frase (`cached: true`).
 
 - **Método:** `GET`
-- **URL:** `https://fittraack-movil-gr4-v2-xpress.onrender.com/api/quotes/random`
+- **URL:** `https://fit-traack-movil-gr4-vercel-xpress-pi.vercel.app/api/quotes/random`
 - **Autenticación:** 🔒 Privado
 - **Body:** no necesita
 - **Respuesta (200 OK):**
@@ -433,7 +532,7 @@ Rutas base: `/api/nutrition`. Registro de comidas descritas en lenguaje natural;
 Recibe una descripción de lo que comiste en texto libre y el backend calcula calorías, proteína, carbohidratos y grasas automáticamente (usando una API externa de nutrición), guardando el resultado.
 
 - **Método:** `POST`
-- **URL:** `https://fittraack-movil-gr4-v2-xpress.onrender.com/api/nutrition/log`
+- **URL:** `https://fit-traack-movil-gr4-vercel-xpress-pi.vercel.app/api/nutrition/log`
 - **Autenticación:** 🔒 Privado
 - **Body (JSON):**
 ```json
@@ -466,8 +565,8 @@ Recibe una descripción de lo que comiste en texto libre y el backend calcula ca
 Devuelve el historial de comidas registradas por el usuario, ordenado de la más reciente a la más antigua. Se puede filtrar por un día específico.
 
 - **Método:** `GET`
-- **URL (sin filtro):** `https://fittraack-movil-gr4-v2-xpress.onrender.com/api/nutrition/logs`
-- **URL (filtrando por fecha):** `https://fittraack-movil-gr4-v2-xpress.onrender.com/api/nutrition/logs?date=2026-07-10`
+- **URL (sin filtro):** `https://fit-traack-movil-gr4-vercel-xpress-pi.vercel.app/api/nutrition/logs`
+- **URL (filtrando por fecha):** `https://fit-traack-movil-gr4-vercel-xpress-pi.vercel.app/api/nutrition/logs?date=2026-07-10`
 - **Autenticación:** 🔒 Privado
 - **Query params (opcional):**
   - `date`: formato `YYYY-MM-DD`, filtra solo los registros de ese día
@@ -483,7 +582,7 @@ Devuelve el historial de comidas registradas por el usuario, ordenado de la más
 Borra un registro de comida específico del historial.
 
 - **Método:** `DELETE`
-- **URL:** `https://fittraack-movil-gr4-v2-xpress.onrender.com/api/nutrition/logs/{id}`
+- **URL:** `https://fit-traack-movil-gr4-vercel-xpress-pi.vercel.app/api/nutrition/logs/{id}`
   - Reemplaza `{id}` por el `_id` del registro (lo obtienes de 7.1 o 7.2)
 - **Autenticación:** 🔒 Privado (solo puedes borrar tus propios registros)
 - **Body:** no necesita
@@ -501,7 +600,7 @@ Borra un registro de comida específico del historial.
 Solo confirma que el servidor está vivo y respondiendo. Útil para probar la conexión antes de hacer cualquier otra cosa en Postman.
 
 - **Método:** `GET`
-- **URL:** `https://fittraack-movil-gr4-v2-xpress.onrender.com/health`
+- **URL:** `https://fit-traack-movil-gr4-vercel-xpress-pi.vercel.app/health`
 - **Autenticación:** 🔓 Pública
 - **Respuesta (200 OK):**
 ```json
@@ -512,7 +611,7 @@ Solo confirma que el servidor está vivo y respondiendo. Útil para probar la co
 Mensaje simple de bienvenida, confirma que la API está corriendo.
 
 - **Método:** `GET`
-- **URL:** `https://fittraack-movil-gr4-v2-xpress.onrender.com/`
+- **URL:** `https://fit-traack-movil-gr4-vercel-xpress-pi.vercel.app/`
 - **Autenticación:** 🔓 Pública
 - **Respuesta (200 OK):**
 ```json
@@ -527,9 +626,10 @@ Mensaje simple de bienvenida, confirma que la API está corriendo.
 |---|---|---|---|---|
 | 1.1 | POST | `/api/auth/register` | 🔓 | Crear cuenta |
 | 1.2 | POST | `/api/auth/login` | 🔓 | Iniciar sesión |
-| 1.3 | POST | `/api/auth/forgot-password` | 🔓 | Solicitar recuperación de contraseña |
-| 1.4 | POST | `/api/auth/reset-password` | 🔓 | Definir nueva contraseña con token |
-| 1.5 | GET | `/api/auth/me` | 🔒 | Ver mi usuario (prueba de token) |
+| 1.3 | POST | `/api/auth/recuperarpassword` | 🔓 | Fase 1: Solicitar recuperación (envía correo) |
+| 1.4 | GET | `/api/auth/recuperarpassword/{token}` | 🔓 | Fase 2: Validar token de recuperación |
+| 1.5 | POST | `/api/auth/nuevopassword/{token}` | 🔓 | Fase 3: Establecer nueva contraseña |
+| 1.7 | GET | `/api/auth/me` | 🔒 | Ver mi usuario (prueba de token) |
 | 2.1 | GET | `/api/users/me` | 🔒 | Ver mi perfil |
 | 2.2 | PATCH | `/api/users/me` | 🔒 | Editar mi perfil |
 | 2.3 | POST | `/api/users/me/photo` | 🔒 | Subir foto de perfil |
