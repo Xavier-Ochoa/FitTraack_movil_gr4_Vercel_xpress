@@ -22,9 +22,9 @@ export const sendMailRecuperarPassword = (destino, resetToken) => {
             </div>
 
             <p style="color: #333; font-size: 15px; line-height: 1.7; margin-bottom: 24px;">
-                Recibimos una solicitud para restablecer tu contraseña. Copia el siguiente código
-                y pégalo en la app para verificarlo e ingresar tu nueva contraseña. Si no fuiste tú,
-                ignora este mensaje.
+                Recibimos una solicitud para restablecer tu contraseña. Copia el siguiente código,
+                vuelve a la app <strong>FitTrack Pro</strong> y pégalo en la pantalla de verificación
+                para poder ingresar tu nueva contraseña. Si no fuiste tú, ignora este mensaje.
             </p>
 
             <div style="text-align: center; margin-bottom: 24px;">
@@ -46,7 +46,7 @@ export const sendMailRecuperarPassword = (destino, resetToken) => {
             <div style="background: #fff5f0; border-left: 4px solid #ff6a3d; border-radius: 6px;
                         padding: 14px 18px; margin-bottom: 24px;">
                 <p style="margin: 0; color: #333; font-size: 13px; line-height: 1.6;">
-                    <strong>⏱ Este enlace expira en ${RESET_TOKEN_EXPIRES_MINUTES} minutos</strong>
+                    <strong>⏱ Este código expira en ${RESET_TOKEN_EXPIRES_MINUTES} minutos</strong>
                     y solo puede usarse una vez.
                 </p>
             </div>
