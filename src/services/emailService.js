@@ -9,9 +9,6 @@ import { RESET_TOKEN_EXPIRES_MINUTES } from '../config/constants.js'
  * @param {string} resetToken - token plano (crypto.randomBytes(32).toString('hex'))
  */
 export const sendMailRecuperarPassword = (destino, resetToken) => {
-    const baseUrl = process.env.APP_RESET_PASSWORD_URL || 'https://fittrackpro.app/reset-password'
-    const link = `${baseUrl}?token=${resetToken}`
-
     return sendMail(
         destino,
         '🔐 Recuperación de contraseña — FitTrack Pro',
@@ -25,27 +22,11 @@ export const sendMailRecuperarPassword = (destino, resetToken) => {
             </div>
 
             <p style="color: #333; font-size: 15px; line-height: 1.7; margin-bottom: 24px;">
-                Recibimos una solicitud para restablecer tu contraseña. Toca el botón de abajo
-                para elegir una nueva. Si no fuiste tú, ignora este mensaje.
+                Recibimos una solicitud para restablecer tu contraseña. Copia el siguiente código
+                y pégalo en la app para verificarlo e ingresar tu nueva contraseña. Si no fuiste tú,
+                ignora este mensaje.
             </p>
 
-            <div style="text-align: center; margin-bottom: 24px;">
-                <a href="${link}"
-                   style="display: inline-block; background: #ff6a3d; color: #ffffff;
-                          text-decoration: none; font-weight: 700; font-size: 15px;
-                          padding: 14px 28px; border-radius: 8px;">
-                    Restablecer contraseña
-                </a>
-            </div>
-
-            <p style="color: #888; font-size: 13px; text-align: center; margin-bottom: 24px;">
-                O copia y pega este enlace en tu navegador:<br>
-                <span style="word-break: break-all;">${link}</span>
-            </p>
-
-            <p style="color: #333; font-size: 13px; text-align: center; margin-bottom: 10px;">
-                También puedes usar directamente este código de recuperación:
-            </p>
             <div style="text-align: center; margin-bottom: 24px;">
                 <table role="presentation" cellpadding="0" cellspacing="0" style="margin: 0 auto; border-collapse: collapse;">
                     <tr>
