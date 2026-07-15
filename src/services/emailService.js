@@ -43,6 +43,25 @@ export const sendMailRecuperarPassword = (destino, resetToken) => {
                 <span style="word-break: break-all;">${link}</span>
             </p>
 
+            <p style="color: #333; font-size: 13px; text-align: center; margin-bottom: 10px;">
+                También puedes usar directamente este código de recuperación:
+            </p>
+            <div style="text-align: center; margin-bottom: 24px;">
+                <table role="presentation" cellpadding="0" cellspacing="0" style="margin: 0 auto; border-collapse: collapse;">
+                    <tr>
+                        <td style="background: #f5f5f5; border: 1px dashed #ff6a3d; border-radius: 8px;
+                                   padding: 14px 18px; font-family: 'Courier New', Courier, monospace;
+                                   font-size: 14px; color: #ff6a3d; font-weight: 700;
+                                   word-break: break-all; letter-spacing: 0.5px; user-select: all;">
+                            ${resetToken}
+                        </td>
+                    </tr>
+                </table>
+                <p style="color: #999; font-size: 11px; margin: 8px 0 0 0;">
+                    Toca sobre el código y mantén presionado para seleccionarlo y copiarlo.
+                </p>
+            </div>
+
             <div style="background: #fff5f0; border-left: 4px solid #ff6a3d; border-radius: 6px;
                         padding: 14px 18px; margin-bottom: 24px;">
                 <p style="margin: 0; color: #333; font-size: 13px; line-height: 1.6;">
