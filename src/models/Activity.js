@@ -9,7 +9,7 @@ const activitySchema = new Schema(
         },
         type: {
             type: String,
-            enum: ['running', 'walking'],
+            enum: ['running', 'walking', 'cycling', 'hiking'],
             required: true,
         },
         title: {
