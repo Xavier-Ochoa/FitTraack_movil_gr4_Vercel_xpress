@@ -11,7 +11,7 @@ import {
 } from '../services/activityCalculations.js'
 import { enrichActivity } from '../services/activityEnrichment.js'
 
-const TIPOS_VALIDOS = ['running', 'walking']
+const TIPOS_VALIDOS = ['running', 'walking', 'cycling', 'hiking']
 
 // ── POST /api/activities ────────────────────────────────────────────────
 // Recibe la actividad + un array de track_points en una sola llamada.
@@ -193,6 +193,59 @@ export const getActivityDetail = async (req, res, next) => {
             trackPoints,
             activityStats: activityStats || null,
         })
+    } catch (error) {
+        next(error)
+    }
+}
+
+// ── PATCH /api/activities/:id ────────────────────────────────────────────
+// Permite modificar ÚNICAMENTE "title", "description" y "type" de una
+// actividad ya existente. Cualquier otro campo enviado en el body es
+// ignorado (no se toca distance, duration, trackPoints, etc.).
+export const updateActivity = async (req, res, next) => {
+    try {
+        if (!mongoose.isValidObjectId(req.params.id)) {
+            return res.status(400).json({ msg: 'El id de actividad no tiene un formato válido' })
+        }
+
+        const actividad = await Activity.findById(req.params.id)
+
+        if (!actividad) {
+            return res.status(404).json({ msg: 'Actividad no encontrada' })
+        }
+
+        if (actividad.userId.toString() !== req.userId) {
+            return res.status(403).json({ msg: 'No tienes permiso para modificar esta actividad' })
+        }
+
+        const { title, description, type } = req.body
+
+        if (title === undefined && description === undefined && type === undefined) {
+            return res.status(400).json({
+                msg: 'Debes enviar al menos uno de estos campos: "title", "description" o "type"',
+            })
+        }
+
+        if (type !== undefined) {
+            if (!TIPOS_VALIDOS.includes(type)) {
+                return res.status(400).json({
+                    msg: `El campo "type" solo acepta los siguientes valores: ${TIPOS_VALIDOS.join(', ')}`,
+                })
+            }
+            actividad.type = type
+        }
+
+        if (title !== undefined) {
+            actividad.title = title
+        }
+
+        if (description !== undefined) {
+            actividad.description = description
+        }
+
+        await actividad.save()
+
+        res.status(200).json({ activity: actividad.toObject() })
     } catch (error) {
         next(error)
     }
