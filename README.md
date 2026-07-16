@@ -16,7 +16,7 @@ Todas las URLs de esta guía ya están escritas completas con esta base, listas 
 1. [Cómo funciona la autenticación (léelo primero)](#cómo-funciona-la-autenticación)
 2. [Auth — Registro, login y contraseña](#1-auth)
 3. [Users — Perfil del usuario](#2-users)
-4. [Activities — Actividades físicas (correr / caminar)](#3-activities)
+4. [Activities — Actividades físicas (correr / caminar / ciclismo / senderismo)](#3-activities)
 5. [Weather — Clima](#4-weather)
 6. [Stats — Estadísticas del usuario](#5-stats)
 7. [Quotes — Frase motivacional](#6-quotes)
@@ -343,7 +343,7 @@ Sube una imagen (se guarda en Cloudinary) y la asigna como foto de perfil del us
 ---
 
 ## 3. Activities
-Rutas base: `/api/activities`. Registro de sesiones de ejercicio (correr o caminar), incluyendo la ruta GPS punto por punto. **Todas requieren token.**
+Rutas base: `/api/activities`. Registro de sesiones de ejercicio (`running`, `walking`, `cycling` o `hiking`), incluyendo la ruta GPS punto por punto. **Todas requieren token.**
 
 ### 3.1 Crear actividad
 Guarda una actividad terminada (con su ruta GPS opcional). El backend calcula automáticamente duración, ritmo promedio, velocidad promedio y calorías quemadas; además intenta enriquecerla con clima, nombre del lugar y desnivel.
@@ -368,7 +368,7 @@ Guarda una actividad terminada (con su ruta GPS opcional). El backend calcula au
 }
 ```
 - **Campos:**
-  - `type` (obligatorio): `"running"` o `"walking"`
+  - `type` (obligatorio): `"running"`, `"walking"`, `"cycling"` o `"hiking"`
   - `startedAt`, `endedAt` (obligatorios): fechas ISO, `endedAt` debe ser posterior a `startedAt`
   - `distance` (obligatorio): número en kilómetros, ≥ 0
   - `title`, `description`: opcionales, texto libre
@@ -384,7 +384,7 @@ Guarda una actividad terminada (con su ruta GPS opcional). El backend calcula au
 }
 ```
   - `caloriesBurnedEstimated: true` significa que se usó un peso corporal por defecto porque el usuario no tiene `weightKg` en su perfil.
-- **Errores comunes:** `400` si falta `type`, fechas inválidas, `distance` inválida, o algún `trackPoint` sin `lat`/`lng`/`timestamp`.
+- **Errores comunes:** `400` si falta `type` o no es uno de los valores permitidos (`running`, `walking`, `cycling`, `hiking`), fechas inválidas, `distance` inválida, o algún `trackPoint` sin `lat`/`lng`/`timestamp`.
 
 ---
 
@@ -422,7 +422,35 @@ Devuelve una actividad específica con toda su información: la ruta GPS complet
 
 ---
 
-### 3.4 Eliminar una actividad
+### 3.4 Editar una actividad
+Permite modificar **únicamente** `title`, `description` y/o `type` de una actividad ya existente. Ningún otro campo (distancia, duración, ruta GPS, clima, etc.) puede modificarse por este endpoint, aunque se envíe en el body.
+
+- **Método:** `PATCH`
+- **URL:** `https://fit-traack-movil-gr4-vercel-xpress-pi.vercel.app/api/activities/{id}`
+  - Reemplaza `{id}` por el `_id` de la actividad.
+- **Autenticación:** 🔒 Privado (solo puedes editar tus propias actividades)
+- **Body (JSON):** envía 1, 2 o los 3 campos — no es necesario mandarlos todos
+```json
+{
+  "title": "Carrera matutina (editada)",
+  "description": "Trote suave en el parque",
+  "type": "cycling"
+}
+```
+- **Campos:**
+  - `title`: opcional, texto libre
+  - `description`: opcional, texto libre
+  - `type`: opcional, debe ser uno de `"running"`, `"walking"`, `"cycling"` o `"hiking"`
+  - Debes enviar **al menos uno** de estos 3 campos
+- **Respuesta (200 OK):**
+```json
+{ "activity": { "_id": "665f...", "type": "cycling", "title": "Carrera matutina (editada)", "...": "..." } }
+```
+- **Errores comunes:** `400` si el id no tiene formato válido, si no envías ningún campo válido, o si `type` no es uno de los valores permitidos. `404` si no existe. `403` si la actividad es de otro usuario.
+
+---
+
+### 3.5 Eliminar una actividad
 Borra la actividad y, en cascada, sus puntos GPS y sus estadísticas asociadas.
 
 - **Método:** `DELETE`
@@ -636,7 +664,8 @@ Mensaje simple de bienvenida, confirma que la API está corriendo.
 | 3.1 | POST | `/api/activities` | 🔒 | Crear actividad (con ruta GPS) |
 | 3.2 | GET | `/api/activities` | 🔒 | Listar mis actividades |
 | 3.3 | GET | `/api/activities/{id}` | 🔒 | Ver detalle de una actividad |
-| 3.4 | DELETE | `/api/activities/{id}` | 🔒 | Eliminar una actividad |
+| 3.4 | PATCH | `/api/activities/{id}` | 🔒 | Editar `title`, `description` y/o `type` |
+| 3.5 | DELETE | `/api/activities/{id}` | 🔒 | Eliminar una actividad |
 | 4.1 | GET | `/api/weather?lat=&lng=` | 🔒 | Consultar clima actual |
 | 5.1 | GET | `/api/stats/me` | 🔒 | Ver mis estadísticas |
 | 6.1 | GET | `/api/quotes/random` | 🔒 | Frase motivacional |
