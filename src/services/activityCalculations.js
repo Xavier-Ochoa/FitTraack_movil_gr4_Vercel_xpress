@@ -5,6 +5,8 @@
 const MET_POR_TIPO = {
     running: 8,
     walking: 3.8,
+    cycling: 7.5, // ciclismo a ritmo moderado (~19-22 km/h)
+    hiking: 6, // senderismo/trekking en terreno variado
 }
 
 const PESO_KG_POR_DEFECTO = 70 // fallback si el usuario no tiene weightKg en su perfil
