@@ -3,6 +3,7 @@ import {
     createActivity,
     listActivities,
     getActivityDetail,
+    updateActivity,
     deleteActivity,
 } from '../controllers/activity_controller.js'
 import { requireAuth } from '../middleware/requireAuth.js'
@@ -15,6 +16,7 @@ router.use(requireAuth)
 router.post('/', createActivity)
 router.get('/', listActivities)
 router.get('/:id', getActivityDetail)
+router.patch('/:id', updateActivity)
 router.delete('/:id', deleteActivity)
 
 export default router
